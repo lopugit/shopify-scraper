@@ -29,6 +29,7 @@ app.get('/v1/videos', async (req, res) => {
 		let videos = []
 
 		let promises = []
+		let completed = 0
 		
 		for (let playlistId of playlistIds) {
 			promises.push(new Promise(async (res, rej) => {
@@ -111,6 +112,7 @@ app.get('/v1/videos', async (req, res) => {
 				} catch (err) {
 					console.error(err)
 				}
+				completed++
 				res()
 			}))
 		}
@@ -126,6 +128,7 @@ app.get('/v1/videos', async (req, res) => {
 
 		res.status(200).json({
 			count: videos.length,
+			completed,
 			videos
 		})
 
