@@ -28,6 +28,21 @@ app.get('/v1/videos', async (req, res) => {
 		let videos = []
 
 		for (let playlistId of playlistIds) {
+			console.log('Trying to get channel id from username', playlistId)
+			let usernameResp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+				params: {
+					part: 'id',
+					key: process.env.API_KEY,
+					forUsername: playlistId
+				}
+			}).catch(err => {
+				console.error(err)
+			})
+			console.log(usernameResp)
+			if (usernameResp && usernameResp.data && usernameResp.data.pageInfo.totalResults > 0) {
+				playlistId = usernameResp.data.items[0].id
+			}
+			playlistId = 'UU' + playlistId.slice(2, playlistId.length)
 			console.log('Getting latest videos for playlistId: ' + playlistId)
 			let resp = await axios.get('https://youtube.googleapis.com/youtube/v3/playlistItems',{
 				params: {
@@ -63,6 +78,7 @@ app.get('/v1/videos', async (req, res) => {
 		})
 
 	} catch (err) {
+		console.error(err)
 		res.status(500).json(err)
 	}
 
