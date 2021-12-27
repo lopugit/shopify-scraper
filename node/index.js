@@ -38,15 +38,26 @@ app.get('/v1/videos', async (req, res) => {
 			}).catch(err => {
 				console.error(err)
 			})
-			console.log(usernameResp)
 			if (usernameResp && usernameResp.data && usernameResp.data.pageInfo.totalResults > 0) {
 				playlistId = usernameResp.data.items[0].id
+			} else {
+				let searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+					params: {
+						part: 'id,snippet',
+						maxResults: 1,
+						q: playlistId,
+						key: process.env.API_KEY
+					}
+				})
+				if (searchResp && searchResp.data?.items?.length) {
+					playlistId = searchResp.data.items[0].snippet.channelId
+				}
 			}
-			playlistId = 'UU' + playlistId.slice(2, playlistId.length)
-			console.log('Getting latest videos for playlistId: ' + playlistId)
+			let playlistIdModified = 'UU' + playlistId.slice(2, playlistId.length)
+			console.log('Getting latest videos for playlistIdModified: ' + playlistIdModified)
 			let resp = await axios.get('https://youtube.googleapis.com/youtube/v3/playlistItems',{
 				params: {
-					playlistId,
+					playlistId: playlistIdModified,
 					part: 'snippet,contentDetails',
 					key: process.env.API_KEY
 				}
@@ -54,14 +65,15 @@ app.get('/v1/videos', async (req, res) => {
 				console.error(err.response.data.error)
 			})
 
-			if (resp && resp.status == 200) {
+			if (resp && resp.status == 200 && resp.data?.items?.length) {
 				let data = resp.data
 				let items = data.items
-
+				
+				console.log('Found', items.length, 'videos')
 				for (let item of items) {
 					videos.push(item)
 				}
-			}
+			} 
 			
 		}
 
