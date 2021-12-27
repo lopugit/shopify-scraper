@@ -33,7 +33,6 @@ app.get('/v1/videos', async (req, res) => {
 		for (let playlistId of playlistIds) {
 			promises.push(new Promise(async (res, rej) => {
 				try {
-
 					if (playlistId.length) {
 						console.log('Trying to get channel id from username', playlistId)
 						let usernameResp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
@@ -78,6 +77,8 @@ app.get('/v1/videos', async (req, res) => {
 									q: playlistId,
 									key: process.env.API_KEY
 								}
+							}).catch(err => {
+								console.error(err)
 							})
 							if (searchResp && searchResp.data?.items?.length) {
 								playlistId = searchResp.data.items[0].snippet.channelId
