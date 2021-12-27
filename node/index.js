@@ -6,7 +6,7 @@ const port = process.env.PORT
 const axios = require('axios')
 
 app.use(cors({
-	origin: '*:*'
+	origin: '*'
 }))
 
 app.get('/', (req, res) => {
@@ -22,7 +22,6 @@ app.get('/v1/videos', async (req, res) => {
 
 		let args = req.query
 		console.log(req.query)
-
 
 		let playlistIds = args.playlistIds
 
@@ -62,10 +61,10 @@ app.get('/v1/videos', async (req, res) => {
 			count: videos.length,
 			videos
 		})
+
 	} catch (err) {
 		res.status(500).json(err)
 	}
-
 
 })
 
