@@ -5,8 +5,9 @@
   "main": "node/index.js",
   "scripts": {
     "dev.dev": "npm run stop && npm run start",
-    "stop": "pm2 delete ecosystem.config.js",
-    "start": "pm2 start ecosystem.config.js",
+    "stop.dev": "pm2 delete ecosystem.config.js",
+    "start.dev": "pm2 start ecosystem.config.js",
+    "start": "node node/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
