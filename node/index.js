@@ -23,13 +23,14 @@ app.get('/v1/videos', async (req, res) => {
 		let args = req.query
 		console.log(req.query)
 
-		let playlistIds = args.playlistIds
+		let playlistIds = args.playlistIds || []
 		let maxResults = args.maxResults || 10
 
 		let videos = []
 
 		let promises = []
 		let completed = 0
+		let errors = []
 		
 		for (let playlistId of playlistIds) {
 			promises.push(new Promise(async (res, rej) => {
@@ -43,7 +44,8 @@ app.get('/v1/videos', async (req, res) => {
 								forUsername: playlistId
 							}
 						}).catch(err => {
-							console.error(err)
+							console.error('uuid 1', err.response.data.error)
+							errors.push(err.response.data.error)
 						})
 						if (usernameResp && usernameResp.data && usernameResp.data.pageInfo.totalResults > 0) {
 							playlistId = usernameResp.data.items[0].id
@@ -58,7 +60,8 @@ app.get('/v1/videos', async (req, res) => {
 								maxResults
 							}
 						}).catch(err => {
-							console.error(err.response.data.error)
+							console.error('uuid 2', err.response.data.error)
+							errors.push(err.response.data.error)
 						})
 
 						if (resp && resp.status == 200 && resp.data?.items?.length) {
@@ -112,7 +115,7 @@ app.get('/v1/videos', async (req, res) => {
 						}
 					}
 				} catch (err) {
-					console.error(err)
+					console.error('uuid 3', err)
 				}
 				completed++
 				res()
@@ -128,15 +131,23 @@ app.get('/v1/videos', async (req, res) => {
 
 		console.log('Found', videos.length, 'videos total')
 
+		let quotaReached = false
+		errors.forEach(error => {
+			if (error.message.includes('The request cannot be completed because you have exceeded your')) {
+				quotaReached = true
+			}
+		})
+
 		res.status(200).json({
+			error: quotaReached && 'Sorry, the app is too popular and YouTube only allows a few API requests, the YouTube Data API Quota has been reached, please try again tomorrow',
 			count: videos.length,
 			completed,
 			videos
 		})
 
 	} catch (err) {
-		console.error(err)
-		res.status(500).json(err)
+		console.error('uuid 4', err)
+		res.json(err)
 	}
 
 })
