@@ -147,7 +147,9 @@ app.get('/v1/videos', async (req, res) => {
 
 	} catch (err) {
 		console.error('uuid 4', err)
-		res.json(err)
+		res.status(500).send({
+			error: 'Something went wrong, please try again later'
+		})
 	}
 
 })
