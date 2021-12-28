@@ -70,43 +70,45 @@ app.get('/v1/videos', async (req, res) => {
 								videos.push(item)
 							}
 						} else {
-							console.log('Didn\'t find any videos for', playlistId, 'trying generalised search')
-							let searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-								params: {
-									part: 'id,snippet',
-									maxResults: 1,
-									q: playlistId,
-									key: process.env.API_KEY
-								}
-							}).catch(err => {
-								console.error(err)
-							})
-							if (searchResp && searchResp.data?.items?.length) {
-								playlistId = searchResp.data.items[0].snippet.channelId
-							}
+							// search for channel id via 100 quota point search API
+							// DISABLED
+							// console.log('Didn\'t find any videos for', playlistId, 'trying generalised search')
+							// let searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+							// 	params: {
+							// 		part: 'id,snippet',
+							// 		maxResults: 1,
+							// 		q: playlistId,
+							// 		key: process.env.API_KEY
+							// 	}
+							// }).catch(err => {
+							// 	console.error(err)
+							// })
+							// if (searchResp && searchResp.data?.items?.length) {
+							// 	playlistId = searchResp.data.items[0].snippet.channelId
+							// }
 
-							playlistIdModified = 'UU' + playlistId.slice(2, playlistId.length)
-							console.log('Getting latest videos for playlistIdModified: ' + playlistIdModified)
-							let resp2 = await axios.get('https://youtube.googleapis.com/youtube/v3/playlistItems',{
-								params: {
-									playlistId: playlistIdModified,
-									part: 'snippet,contentDetails',
-									key: process.env.API_KEY,
-									maxResults
-								}
-							}).catch(err => {
-								console.error(err.response.data.error)
-							})
+							// playlistIdModified = 'UU' + playlistId.slice(2, playlistId.length)
+							// console.log('Getting latest videos for playlistIdModified: ' + playlistIdModified)
+							// let resp2 = await axios.get('https://youtube.googleapis.com/youtube/v3/playlistItems',{
+							// 	params: {
+							// 		playlistId: playlistIdModified,
+							// 		part: 'snippet,contentDetails',
+							// 		key: process.env.API_KEY,
+							// 		maxResults
+							// 	}
+							// }).catch(err => {
+							// 	console.error(err.response.data.error)
+							// })
 
-							if (resp2 && resp2.status == 200 && resp2.data?.items?.length) {
-								let data = resp2.data
-								let items = data.items
+							// if (resp2 && resp2.status == 200 && resp2.data?.items?.length) {
+							// 	let data = resp2.data
+							// 	let items = data.items
 
-								console.log('Found', items.length, 'videos')
-								for (let item of items) {
-									videos.push(item)
-								}
-							}					
+							// 	console.log('Found', items.length, 'videos')
+							// 	for (let item of items) {
+							// 		videos.push(item)
+							// 	}
+							// }					
 						}
 					}
 				} catch (err) {
