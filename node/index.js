@@ -166,15 +166,13 @@ app.get('/privacy-policy', async (req, res) => {
   )
     | Privacy Policy
   p.subtitle
-    | The friendly Subber Privacy Policy
+    | The friendly Subber API Privacy Policy
   p.answer
-    .pt-12 This API Client uses YouTube API Services
-    .pt-12 Subber uses Google Analytics Tag Manager to track page views, clicks, and scroll events. This data is only stored in Google servers and Google Analytics servers, there is no custom user data tracking done or stored anywhere outside Google servers.
-    .pt-12 User data is collected about the user's device such as Country, City, Browser, OS, and model
-    .pt-12 User data is not shared with anyone outside of Google servers and Subber developers analyzing Google Analytics
-    .pt-12 We do not allow any 3rd parties to serve Ads on Subber
-  .pt-12 You can contact Subber at
-    a(href='emailto:subber@alopu.com', style="padding-left: 6px") subber@alopu.com
+    .pt-12 This API uses YouTube API Services
+    .pt-12 Subber API does not use any analytics tools to store any data, nor does it store any user data of any kind.
+    .pt-12 We do not allow any 3rd parties to serve Ads on Subber API
+  .pt-12 You can contact Subber API at
+    a(href='emailto:subberAPI@alopu.com', style="padding-left: 6px") subberAPI@alopu.com
   .pt-12
     a.underline(href='https://www.youtube.com/t/terms') YouTube Terms of Service
   .pt-12
