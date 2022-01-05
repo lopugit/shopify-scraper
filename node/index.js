@@ -158,7 +158,9 @@ app.get('/v1/videos', async (req, res) => {
 app.get('/privacy-policy', async (req, res) => {
 
   return res.send(pug.compile(`
-.privacy-policy
+.privacy-policy(
+  style="max-width: 600px; margin: 0 auto; padding-top: 100px"
+)
   h1.title.text-white(
     style='fontSize: 48px; fontWeight: bold;'
   )
