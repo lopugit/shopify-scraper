@@ -42,7 +42,7 @@ app.get('/v1/profile-pictures', async (req, res) => {
       errors.push(err.response.data.error)
     })
 
-    if (profilePictureResp) {
+    if (profilePictureResp && profilePictureResp.data && profilePictureResp.data.items) {
       let profilePictures = profilePictureResp.data.items.map(item => {
         return {
           ...item,
@@ -50,6 +50,8 @@ app.get('/v1/profile-pictures', async (req, res) => {
         }
       })
       res.send({profilePictures})
+    } else {
+      res.send({profilePictures: []})
     }
 
   } catch (err) {
