@@ -14,6 +14,53 @@ app.get('/', (req, res) => {
   res.send('Hello YT World!')
 })
 
+app.get('/v1/profile-pictures', async (req, res) => {
+  // https://www.googleapis.com/youtube/v3/channels?
+  // part=snippet
+  // &id='+commaSeperatedList+'
+  // &fields=items(id,snippet_thumbnails)
+  // &key={YOUR_API_KEY}
+
+  try {
+
+    let args = req.query
+    console.log(req.query)
+
+    let channelIds = args.channelIds || []
+    let commaSeperatedList = channelIds.join(',')
+    let errors = []
+
+    let profilePictureResp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+      params: {
+        part: 'snippet',
+        id: commaSeperatedList,
+        fields: 'items(id,snippet/thumbnails)',
+        key: process.env.API_KEY
+      }
+    }).catch(err => {
+      console.error('uuid 1', err.response.data.error)
+      errors.push(err.response.data.error)
+    })
+
+    if (profilePictureResp) {
+      let profilePictures = profilePictureResp.data.items.map(item => {
+        return {
+          ...item,
+          url: item.snippet.thumbnails.default.url
+        }
+      })
+      res.send({profilePictures})
+    }
+
+  } catch (err) {
+    console.error('uuid 5', err)
+    res.status(500).send({
+      error: 'Something went wrong getting profile pictures, please try again later'
+    })
+  }
+  
+})
+
 app.get('/v1/videos', async (req, res) => {
   // https://youtube.googleapis.com/youtube/v3/playlistItems?
   // playlistId=UU3Wn3dABlgESm8Bzn8Vamgg
@@ -25,7 +72,7 @@ app.get('/v1/videos', async (req, res) => {
     console.log(req.query)
 
     let playlistIds = args.playlistIds || []
-    let maxResults = args.maxResults || 10
+    let maxResults = args.maxResults || 100
 
     let videos = []
 
@@ -149,7 +196,7 @@ app.get('/v1/videos', async (req, res) => {
   } catch (err) {
     console.error('uuid 4', err)
     res.status(500).send({
-      error: 'Something went wrong, please try again later'
+      error: 'Something went wrong getting videos, please try again later'
     })
   }
 
