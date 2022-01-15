@@ -1,16 +1,19 @@
 require('dotenv').config()
+const bodyParser = require('body-parser')
 const express = require('express')
 const cors = require('cors')
 const app = express()
+app.use(bodyParser.json())
 const port = process.env.PORT
 const axios = require('axios')
 const pug = require('pug')
 const { DateTime } = require('luxon')
-const { cache } = require('pug/lib')
+const bcrypt = require('bcrypt')
+const saltRounds = 10
 
 // Mongodb setup
 let cacheCollection
-let aggregationsCollection
+let collections
 try {
 	const { MongoClient } = require('mongodb')
 	const url = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PWD}@${process.env.MONGODB_CLUSTER}.nhb33.mongodb.net/${process.env.MONGODB_DB}?retryWrites=true&w=majority`
@@ -24,7 +27,7 @@ try {
 		} else {
 			console.log('Connected to MongoDB')
 			cacheCollection = client.db(process.env.MONGODB_DB).collection('cache')
-			aggregationsCollection = client.db(process.env.MONGODB_DB).collection('aggregations')
+			collections = client.db(process.env.MONGODB_DB).collection('collections')
 		}
 	})
 } catch (err) {
@@ -38,6 +41,69 @@ app.use(cors({
 
 app.get('/', (req, res) => {
 	res.send('Hello YT World!')
+})
+
+app.get('/v1/get-collection', async (req, res) => {
+
+	const { name } = req.query
+
+	// Get the collection
+	const collection = await collections.findOne({ name: name.toLowerCase() })
+
+	if (collection) {
+		res.send({ collection })
+	} else {
+		res.status(500).send({ error: 'No collection found' })
+	}
+
+})
+
+app.post('/v1/save-collection', async (req, res) => {
+
+	const { name, author, email, password, channels } = req.body
+	if (!(name && author && email && channels && channels.length && password && password.length >= 8)) {
+		const error = { error: 'Missing required fields' }
+		console.log('uuid 7', error)
+		res.status(500).send(error)
+		return
+	}
+
+	// Check if collection already exists
+	const existingCollection = await collections.findOne({ name: name.toLowerCase() })
+
+	// If already exists, check password matches
+	if (existingCollection) {
+		if (bcrypt.compareSync(password, existingCollection.password)) {
+			collections.findOneAndUpdate({
+				name: name.toLowerCase(),
+			}, {
+				$set: {
+					channels,
+					author,
+					email,
+				},
+			}, {
+				upsert: true,
+			})
+			res.send('Success')
+		} else {
+			const error = { error: 'Incorrect password' }
+			console.error('uuid 10', error)
+			res.status(500).send(error)
+		}
+	} else {
+		// Hash password and save collection
+		const hashedPassword = await bcrypt.hash(password, saltRounds)
+		await collections.insertOne({
+			name: name.toLowerCase(),
+			author,
+			email,
+			password: hashedPassword,
+			channels,
+		})
+		res.send('Collection saved')
+	}
+
 })
 
 app.get('/v1/channel-search', async (req, res) => {
