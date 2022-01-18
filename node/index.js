@@ -10,6 +10,7 @@ const pug = require('pug')
 const { DateTime } = require('luxon')
 const bcrypt = require('bcrypt')
 const saltRounds = 10
+const { get } = require('lodash')
 
 // Mongodb setup
 let cacheCollection
@@ -45,34 +46,45 @@ app.get('/', (req, res) => {
 
 app.get('/v1/get-collection', async (req, res) => {
 
-	const { name } = req.query
+	let { name } = req.query
 
-	// Get the collection
-	const collection = await collections.findOne({ name: name.toLowerCase() })
+	if (name) {
+		name = name.replace(/ /gi, '-').toLowerCase()
+		// Get the collection
+		const collection = await collections.findOne({ name })
 
-	if (collection) {
-		res.status(200).send({ collection })
+		if (collection) {
+			res.status(200).send({ collection })
+		} else {
+			res.status(500).send({ error: 'No collection found' })
+		}
 	} else {
-		res.status(500).send({ error: 'No collection found' })
+		res.status(500).send({ error: 'No collection name provided' })
 	}
 
 })
 
 app.get('/v1/count-view', async (req, res) => {
 
-	const { name } = req.query
+	let { name } = req.query
 
-	const collection = await collections.findOne({ name })
+	if (name) {
+		name = name.replace(/ /gi, '-').toLowerCase()
 
-	if (collection) {
-		console.log('Counting 1 view for collection', name)
-		collection.views = (collection.views || 0) + 1
-		await collections.updateOne({ name }, { $set: { views: collection.views } })
+		const collection = await collections.findOne({ name })
+
+		if (collection) {
+			console.log('Counting 1 view for collection', name)
+			collection.views = (collection.views || 0) + 1
+			await collections.updateOne({ name }, { $set: { views: collection.views } })
+		} else {
+			console.log('No collection found for name', name)
+		}
+
+		res.status(200).send({ counted: collection })
 	} else {
-		console.log('No collection found for name', name)
+		res.status(500).send({ error: 'No collection name provided' })
 	}
-
-	res.status(200).send({ counted: collection })
 
 })
 
@@ -87,7 +99,8 @@ app.get('/v1/collections', async (req, res) => {
 
 app.post('/v1/save-collection', async (req, res) => {
 
-	const { name, author, email, password, channels } = req.body
+	const { author, email, password, channels } = req.body
+	let { name } = req.body
 	if (!(name && author && email && channels && channels.length && password && password.length >= 8)) {
 		const error = { error: 'Missing required fields' }
 		console.log('uuid 7', error)
@@ -95,14 +108,18 @@ app.post('/v1/save-collection', async (req, res) => {
 		return
 	}
 
+	name = name.replace(/ /gi, '-').toLowerCase()
+
+	console.log('name WTF', name)
+
 	// Check if collection already exists
-	const existingCollection = await collections.findOne({ name: name.toLowerCase() })
+	const existingCollection = await collections.findOne({ name })
 
 	// If already exists, check password matches
 	if (existingCollection) {
 		if (bcrypt.compareSync(password, existingCollection.password)) {
 			collections.findOneAndUpdate({
-				name: name.toLowerCase(),
+				name,
 			}, {
 				$set: {
 					channels,
@@ -122,7 +139,7 @@ app.post('/v1/save-collection', async (req, res) => {
 		// Hash password and save collection
 		const hashedPassword = await bcrypt.hash(password, saltRounds)
 		await collections.insertOne({
-			name: name.toLowerCase(),
+			name,
 			author,
 			email,
 			password: hashedPassword,
