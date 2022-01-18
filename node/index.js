@@ -40,7 +40,7 @@ app.use(cors({
 }))
 
 app.get('/', (req, res) => {
-	res.send('Hello YT World!')
+	res.status(200).send('Hello YT World!')
 })
 
 app.get('/v1/get-collection', async (req, res) => {
@@ -51,10 +51,37 @@ app.get('/v1/get-collection', async (req, res) => {
 	const collection = await collections.findOne({ name: name.toLowerCase() })
 
 	if (collection) {
-		res.send({ collection })
+		res.status(200).send({ collection })
 	} else {
 		res.status(500).send({ error: 'No collection found' })
 	}
+
+})
+
+app.get('/v1/count-view', async (req, res) => {
+
+	const { name } = req.query
+
+	const collection = await collections.findOne({ name })
+
+	if (collection) {
+		console.log('Counting 1 view for collection', name)
+		collection.views = (collection.views || 0) + 1
+		await collections.updateOne({ name }, { $set: { views: collection.views } })
+	} else {
+		console.log('No collection found for name', name)
+	}
+
+	res.status(200).send({ counted: collection })
+
+})
+
+app.get('/v1/collections', async (req, res) => {
+
+	// Get collections
+	const allCollections = await collections.find({}).sort({ views: -1 }).toArray()
+
+	res.status(200).send({ collections: allCollections })
 
 })
 
@@ -85,7 +112,7 @@ app.post('/v1/save-collection', async (req, res) => {
 			}, {
 				upsert: true,
 			})
-			res.send('Success')
+			res.status(200).send('Success')
 		} else {
 			const error = { error: 'Incorrect password' }
 			console.error('uuid 10', error)
@@ -101,7 +128,7 @@ app.post('/v1/save-collection', async (req, res) => {
 			password: hashedPassword,
 			channels,
 		})
-		res.send('Collection saved')
+		res.status(200).send('Collection saved')
 	}
 
 })
@@ -121,7 +148,7 @@ app.get('/v1/channel-search', async (req, res) => {
 
 	if (cached && cached[0] && cached[0].results) {
 		console.log('Found cached results')
-		res.send({ results: cached[0].results })
+		res.status(200).send({ results: cached[0].results })
 	} else {
 		try {
 			const url = 'https://www.googleapis.com/youtube/v3/search'
@@ -140,7 +167,7 @@ app.get('/v1/channel-search', async (req, res) => {
 			const { items } = response.data
 			const results = items
 
-			res.send({ results })
+			res.status(200).send({ results })
 
 			cacheCollection.insertOne({
 				query,
@@ -186,9 +213,9 @@ app.get('/v1/profile-pictures', async (req, res) => {
 				...item,
 				url: item.snippet.thumbnails.default.url,
 			}))
-			res.send({ profilePictures })
+			res.status(200).send({ profilePictures })
 		} else {
-			res.send({ profilePictures: [] })
+			res.status(200).send({ profilePictures: [] })
 		}
 	} catch (err) {
 		console.error('uuid 5', err)
@@ -336,7 +363,7 @@ app.get('/v1/videos', async (req, res) => {
 	}
 })
 
-app.get('/privacy-policy', async (req, res) => res.send(pug.compile(`
+app.get('/privacy-policy', async (req, res) => status(200).res.send(pug.compile(`
 .privacy-policy(
   style="max-width: 600px margin: 0 auto padding-top: 100px"
 )
