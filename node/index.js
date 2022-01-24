@@ -380,7 +380,7 @@ app.get('/v1/videos', async (req, res) => {
 	}
 })
 
-app.get('/privacy-policy', async (req, res) => status(200).res.send(pug.compile(`
+app.get('/privacy-policy', async (req, res) => res.status(200).send(pug.compile(`
 .privacy-policy(
   style="max-width: 600px margin: 0 auto padding-top: 100px"
 )
