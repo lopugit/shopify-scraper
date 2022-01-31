@@ -1,6 +1,6 @@
 module.exports = {
 	apps: [{
-		name: 'subber-api-dev',
+		name: 'subber-api',
 		script: 'node/index.js',
 		watch: '.',
 		namespace: 'subber',
