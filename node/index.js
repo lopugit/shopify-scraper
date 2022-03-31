@@ -357,7 +357,11 @@ app.get('/v1/videos', async (req, res) => {
 		// Sort videos by date
 		videos.sort((a, b) => new Date(b.contentDetails.videoPublishedAt) - new Date(a.contentDetails.videoPublishedAt))
 
+		// Slide videos into only 100
+		const videosResp = videos.slice(0, 100)
+
 		console.log('Found', videos.length, 'videos total')
+		console.log('Sending', videosResp.length, 'videos limited')
 
 		let quotaReached = false
 		errors.forEach(error => {
@@ -368,9 +372,9 @@ app.get('/v1/videos', async (req, res) => {
 
 		res.status(200).json({
 			error: quotaReached && 'Sorry, the app is too popular and YouTube only allows a few API requests, the YouTube Data API Quota has been reached, please try again tomorrow',
-			count: videos.length,
+			count: videosResp.length,
 			completed,
-			videos,
+			videos: videosResp,
 		})
 	} catch (err) {
 		console.error('uuid 4', err)
