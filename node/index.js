@@ -1,3 +1,8 @@
+// Catches all uncaught errors so process never dies
+process.on('uncaughtException', err => {
+	console.log('Caught exception: ', err);
+});
+
 require('dotenv').config()
 const bodyParser = require('body-parser')
 const express = require('express')
