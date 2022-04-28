@@ -1,8 +1,8 @@
 module.exports = {
 	apps: [{
-		name: 'subber-api',
+		name: 'shopify-scraper',
 		script: 'node/index.js',
 		watch: '.',
-		namespace: 'subber',
+		namespace: 'shopify',
 	}],
 };
