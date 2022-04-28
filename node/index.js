@@ -66,7 +66,7 @@ const scrapeMarsHydro = async () => {
 		return false
 	}).loc._text
 
-	console.log(productSitemapUrl)
+	console.log('Found product sitemap', productSitemapUrl)
 
 	const productSitemapResp = await axios.get(productSitemapUrl).catch(console.error)
 
@@ -87,15 +87,31 @@ const marsHydroProductSchema = [
 	{
 		name: 'title',
 		selector: '#shopify-section-product-template > div.product.tab-horizontal > div > div.col-md-6.col-lg-12.col-xl-12.product-shop.vertical > header > h2 > span',
-		crawler: 'text',
+		crawler: el => el.text(),
 	},
 	{
 		name: 'availability',
 		selector: '#shopify-section-product-template > div.product.tab-horizontal > div > div.col-md-6.col-lg-12.col-xl-12.product-shop.vertical > div.product-infor > div > span',
-		crawler: 'text',
+		crawler: el => el.text(),
 		modify(value) {
 			return value.replace(/\\n/gi, '').trim()
-		}
+		},
+	},
+	{
+		name: 'description',
+		selector: '#shopify-section-product-template > div.product.tab-horizontal > div > div.col-md-6.col-lg-12.col-xl-12.product-shop.vertical > div:nth-child(6) > div',
+		crawler: el => el.text(),
+		modify(value) {
+			return value.trim()
+		},
+	},
+	{
+		name: 'image',
+		selector: '#shopify-section-product-template > div.product.tab-horizontal > meta:nth-child(2)',
+		crawler: el => el.attr('content'),
+		modify(value) {
+			return 'https://' + value.slice(2, value.length)
+		},
 	},
 ]
 
@@ -111,7 +127,8 @@ const scrapeProductFromPage = async (error, res, done) => {
 	const product = {}
 
 	for (const property of marsHydroProductSchema) {
-		product[property.name] = $(property.selector)[property.crawler]()
+		product[property.name] = $(property.selector)
+		product[property.name] = property.crawler(product[property.name])
 		if (property.modify) {
 			product[property.name] = property.modify(product[property.name])
 		}
