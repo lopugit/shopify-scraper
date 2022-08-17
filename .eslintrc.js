@@ -14,5 +14,8 @@ module.exports = {
 		semi: 'off',
 		'padded-blocks': 'off',
 		'object-curly-spacing': [2, 'always'],
+		'no-await-in-loop': 'off',
+		camelcase: 'off',
+		complexity: 'off',
 	},
 }
