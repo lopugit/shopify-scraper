@@ -17,5 +17,6 @@ module.exports = {
 		'no-await-in-loop': 'off',
 		camelcase: 'off',
 		complexity: 'off',
+		'capitalized-comments': 'off',
 	},
 }

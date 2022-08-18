@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/lopugit/subber-api#readme",
   "dependencies": {
+    "@shopify/shopify-api": "^5.0.1",
     "axios": "^0.24.0",
     "bcrypt": "^5.0.1",
     "body-parser": "^1.19.1",
