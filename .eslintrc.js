@@ -18,5 +18,6 @@ module.exports = {
 		camelcase: 'off',
 		complexity: 'off',
 		'capitalized-comments': 'off',
+		'no-negated-condition': 'off',
 	},
 }

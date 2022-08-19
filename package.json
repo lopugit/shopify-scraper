@@ -36,10 +36,12 @@
     "luxon": "^2.3.0",
     "mongodb": "^4.3.0",
     "picocolors": "^1.0.0",
+    "promise-parallel-throttle": "^3.3.0",
     "pug": "^3.0.2",
     "puppeteer": "^13.7.0",
     "puppeteer-jquery": "^0.3.2",
     "sitemap-crawler": "^1.0.0",
+    "timer-node": "^5.0.6",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {

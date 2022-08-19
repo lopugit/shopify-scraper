@@ -1,6 +1,27 @@
 const siteMap = require('sitemap-crawler')
 const axios = require('axios')
 const { get } = require('lodash')
+const puppeteer = require('puppeteer');
+const { pageExtend } = require('puppeteer-jquery')
+const Throttle = require('promise-parallel-throttle')
+const { Timer } = require('timer-node')
+
+const shopifyGraphApi = axios.create({
+	baseURL: `https://${process.env.SHOPIFY_SHOP}.myshopify.com/admin/api/2022-10/graphql.json`,
+	headers: {
+		'Content-Type': 'application/json',
+		'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN,
+	},
+})
+const shopifyGraph = async body => shopifyGraphApi.post('', body)
+
+const shopifyRestApi = axios.create({
+	baseURL: `https://${process.env.SHOPIFY_SHOP}.myshopify.com/admin/api/2022-10`,
+	headers: {
+		'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN,
+	},
+})
+
 // const { Shopify } = require('@shopify/shopify-api')
 
 // Shopify.Context.initialize({
@@ -13,9 +34,29 @@ const { get } = require('lodash')
 // 	API_VERSION: '2021-10', // all supported versions are available, as well as "unstable" and "unversioned"
 // })
 
-const scrapeMarsHydroProducts = async page => {
+const scrapeMarsHydroProducts = async () => {
 
-	console.log('Running Scrape at', new Date())
+	const startTime = new Date()
+	const startTimeISO = startTime.toISOString().replace(/.\d+Z$/g, 'Z')
+	const timer = new Timer({ label: 'mars-hydro-scrape' })
+	timer.start()
+
+	console.log('Running Scrape at', startTime)
+
+	const browser = await puppeteer.launch({
+		headless: true,
+		args: [
+			'--unlimited-storage',
+			'--full-memory-crash-report',
+			'--disable-gpu',
+			'--ignore-certificate-errors',
+			'--no-sandbox',
+			'--disable-setuid-sandbox',
+			'--disable-dev-shm-usage',
+			'--lang=en-US;q=0.9,en;q=0.8',
+			'--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36',
+		],
+	})
 
 	const urls = await new Promise(res => {
 		siteMap('https://marshydroau.com/', (e, r) => {
@@ -31,278 +72,458 @@ const scrapeMarsHydroProducts = async page => {
 	})
 
 	const completedUrls = []
+	const completedTitles = []
+	const stats = {
+		successes: 0,
+		errors: 0,
+		duplicates: 0,
+		sameTitle: 0,
+	}
+
+	const queue = []
+
+	const debug = {
+		// url: 'https://marshydroau.com/products/60x60x140cm-indoor-grow-tent-green-dark-box-room-hydroponics-mylar-non-toxic/',
+	}
+	const archiveOldProducts = !debug.url
 
 	for (let url of urls) {
-		url = urls[0]
 
-		if (!completedUrls.includes(url)) {
+		url = debug.url || url
 
-			console.log('Scraping url', url)
+		queue.push(async () => {
 
-			completedUrls.push(url)
+			const pageOrig = await browser.newPage()
+			const page = pageExtend(pageOrig)
 
-			await page.goto(url, { timeout: 1000 * 15 })
-
-			const product = {}
-
-			// Get product title
-			product.title = await page.jQuery('.product_title').text()
-
-			// Get product stock level
 			try {
-				const rawStockLevel = await page.jQuery('.summary-inner .stock').text()
-				product.stockLevel = Number(rawStockLevel.split(' ')[0])
-			} catch {}
 
-			// Get short description
-			product.shortDescription = await page.jQuery('.woocommerce-product-details__short-description').text()
+				const productSlug = url.replace(/\/+$/, '').split('/').pop();
 
-			await page.waitForSelector('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper.owl-carousel.owl-loaded > .owl-stage-outer', { timeout: 5000 })
+				// enabled for testing of single url
+				// url = 'https://marshydroau.com/products/fc-e8000-led'
 
-			// Get product images
-			const images = await page.jQuery('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper .owl-stage-outer > .owl-stage > .owl-item a')
-				.map((id, elm) => elm)
-			// .find('a.fancybox')
-			product.images = []
+				if (!completedUrls.includes(url)) {
 
-			for (const image of images) {
-				const imageUrl = await page.evaluate(img => img.href, image)
-				product.images.push(imageUrl)
-			}
+					console.log('Scraping url', url)
 
-			product.price = await page.jQuery('.summary-inner > .price > .woocommerce-Price-amount.amount bdi').text()
-			product.price = Number(product.price.replace('$', ''))
-			product.price = adjustPrice(product.price)
+					completedUrls.push(url)
 
-			if (product.title && product.title.replace(/ /g, '').toLowerCase().includes('growkit')) {
-				product.type = 'Grow Kit'
-			} else if (product.title && product.title.replace(/ /g, '').toLowerCase().includes('growtent')) {
-				product.type = 'Grow Tent'
-			} else if (product.title && product.title.replace(/ /g, '').toLowerCase().includes('growlight')) {
-				product.type = 'Grow Light'
-			} else {
-				product.type = 'Accessory'
-			}
+					await page.goto(url, { timeout: 1000 * 99 })
 
-			const doVariants = false
-			let variantOptions0
-			let variantOptions1
-			let variantOptions2
+					const scrapedProduct = {}
 
-			if (doVariants) {
+					// Get product title
+					scrapedProduct.title = await page.jQuery('.product_title').text()
 
-				variantOptions0 = await page.jQuery('#product-selectors-option-0')
-					.find('option')
+					if (!completedTitles.includes(scrapedProduct.title)) {
 
-				if (variantOptions0.length) {
-					product.variantOptions0 = {
-						values: [],
-					}
-					product.variantOptions0.name = await page.jQuery('#product-variants > div:nth-child(1) > label').text()
-					for (const variantOption of variantOptions0) {
-						const variant = await page.evaluate(option => option.innerText, variantOption)
-						product.variantOptions0.values.push(variant)
-					}
-				}
+						completedTitles.push(scrapedProduct.title)
 
-				variantOptions1 = await page.jQuery('#product-selectors-option-1')
-					.find('option')
-
-				if (variantOptions1.length) {
-					product.variantOptions1 = {
-						values: [],
-					}
-					product.variantOptions1.name = await page.jQuery('#product-variants > div:nth-child(2) > label').text()
-					for (const variantOption of variantOptions1) {
-						const variant = await page.evaluate(option => option.innerText, variantOption)
-						product.variantOptions1.values.push(variant)
-					}
-				}
-
-				variantOptions2 = await page.jQuery('#product-selectors-option-2')
-					.find('option')
-
-				if (variantOptions2.length) {
-					product.variantOptions2 = {
-						values: [],
-					}
-					product.variantOptions2.name = await page.jQuery('#product-variants > div:nth-child(3) > label').text()
-					for (const variantOption of variantOptions2) {
-						const variant = await page.evaluate(option => option.innerText, variantOption)
-						product.variantOptions2.values.push(variant)
-					}
-				}
-			}
-
-			// product.longDescription = await page.jQuery('#collapse-tab1 > div').html()
-
-			// Save to shopify
-			const shopifyProduct = {}
-			shopifyProduct.title = product.title
-			shopifyProduct.body_html = product.shortDescription
-			// shopifyProduct.body_html = product.longDescription
-			shopifyProduct.vendor = 'Mars Hydro'
-			shopifyProduct.product_type = product.type
-
-			// shopifyProduct.images = product.images.map(image => ({
-			// 	src: image,
-			// }))
-			shopifyProduct.images = [{ src: product.images[0] }]
-
-			// Create variations
-
-			shopifyProduct.options = []
-
-			if (!product.variantOptions0) {
-				product.variantOptions0 = {
-					name: 'Default',
-					values: ['Default'],
-					price: product.price,
-					quantity: product.stockLevel,
-				}
-			}
-
-			if (product.variantOptions0 && product.variantOptions0.name !== 'Default') {
-				shopifyProduct.options.push({
-					...product.variantOptions0,
-					position: 1,
-				})
-			}
-
-			if (product.variantOptions1) {
-
-				shopifyProduct.options.push({
-					...product.variantOptions1,
-					position: 2,
-				})
-			}
-
-			if (product.variantOptions2) {
-				shopifyProduct.options.push({
-					...product.variantOptions2,
-					position: 3,
-				})
-			}
-
-			shopifyProduct.variants = []
-
-			if (product.variantOptions0) {
-				for (const variantOption0 of product.variantOptions0.values) {
-					if (product.variantOptions1) {
-						for (const variantOption1 of product.variantOptions1.values) {
-							if (product.variantOptions2) {
-								for (const variantOption2 of product.variantOptions2.values) {
-									shopifyProduct.variants.push({
-										option1: variantOption0,
-										option2: variantOption1,
-										option3: variantOption2,
-										price: get(product.variantOptions0, 'price', 0) + get(product.variantOptions1, 'price', 0) + get(product.variantOptions2, 'price', 0),
-										inventory_quantity: product.variantOptions0.quantity,
-										inventory_management: 'shopify',
-									})
-								}
+						// Get product stock level
+						try {
+							const rawStockLevel = await page.jQuery('.summary-inner .stock').text()
+							if (rawStockLevel.toLowerCase().replace(/ /g, '').includes('outofstock')) {
+								scrapedProduct.stockLevel = 0
+							} else if (rawStockLevel === '') {
+								scrapedProduct.stockLevel = 99
 							} else {
-								shopifyProduct.variants.push({
-									option1: variantOption0,
-									option2: variantOption1,
-									price: get(product.variantOptions0, 'price', 0) + get(product.variantOptions1, 'price', 0),
-									inventory_quantity: product.variantOptions0.quantity,
-									inventory_management: 'shopify',
-								})
+								scrapedProduct.stockLevel = Number(rawStockLevel.split(' ')[0])
+							}
+						} catch {}
+
+						// Get short description
+						scrapedProduct.shortDescription = await page.jQuery('.woocommerce-product-details__short-description').text()
+
+						await page.waitForSelector('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper.owl-carousel.owl-loaded > .owl-stage-outer', { timeout: 15000 })
+
+						// Get product images
+						const images = await page.jQuery('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper .owl-stage-outer > .owl-stage > .owl-item a')
+							.map((id, elm) => elm)
+
+						scrapedProduct.images = []
+
+						for (const image of images) {
+							const imageUrl = await page.evaluate(img => img.href, image)
+							scrapedProduct.images.push(imageUrl)
+						}
+
+						scrapedProduct.price = await page.jQuery('.summary-inner > .price > .woocommerce-Price-amount.amount bdi').text()
+						const priceReplaced = scrapedProduct.price.replace(/\$|,/g, '')
+						scrapedProduct.price = Number(priceReplaced)
+						scrapedProduct.price = adjustPrice(scrapedProduct.price)
+
+						if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growkit')) {
+							scrapedProduct.type = 'Grow Kit'
+						} else if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growtent')) {
+							scrapedProduct.type = 'Grow Tent'
+						} else if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growlight')) {
+							scrapedProduct.type = 'Grow Light'
+						} else {
+							scrapedProduct.type = 'Accessory'
+						}
+
+						const doVariants = false
+						let variantOptions0
+						let variantOptions1
+						let variantOptions2
+
+						if (doVariants) {
+
+							variantOptions0 = await page.jQuery('#product-selectors-option-0')
+								.find('option')
+
+							if (variantOptions0.length) {
+								scrapedProduct.variantOptions0 = {
+									values: [],
+								}
+								scrapedProduct.variantOptions0.name = await page.jQuery('#product-variants > div:nth-child(1) > label').text()
+								for (const variantOption of variantOptions0) {
+									const variant = await page.evaluate(option => option.innerText, variantOption)
+									scrapedProduct.variantOptions0.values.push(variant)
+								}
+							}
+
+							variantOptions1 = await page.jQuery('#product-selectors-option-1')
+								.find('option')
+
+							if (variantOptions1.length) {
+								scrapedProduct.variantOptions1 = {
+									values: [],
+								}
+								scrapedProduct.variantOptions1.name = await page.jQuery('#product-variants > div:nth-child(2) > label').text()
+								for (const variantOption of variantOptions1) {
+									const variant = await page.evaluate(option => option.innerText, variantOption)
+									scrapedProduct.variantOptions1.values.push(variant)
+								}
+							}
+
+							variantOptions2 = await page.jQuery('#product-selectors-option-2')
+								.find('option')
+
+							if (variantOptions2.length) {
+								scrapedProduct.variantOptions2 = {
+									values: [],
+								}
+								scrapedProduct.variantOptions2.name = await page.jQuery('#product-variants > div:nth-child(3) > label').text()
+								for (const variantOption of variantOptions2) {
+									const variant = await page.evaluate(option => option.innerText, variantOption)
+									scrapedProduct.variantOptions2.values.push(variant)
+								}
 							}
 						}
-					} else {
-						shopifyProduct.variants.push({
-							option1: variantOption0,
-							price: get(product.variantOptions0, 'price', 0),
-							inventory_quantity: product.variantOptions0.quantity,
-							inventory_management: 'shopify',
-						})
 
+						// product.longDescription = await page.jQuery('#collapse-tab1 > div').html()
+
+						// Save to shopify
+						const shopifyProduct = {}
+						shopifyProduct.title = scrapedProduct.title
+						shopifyProduct.body_html = scrapedProduct.shortDescription
+						// shopifyProduct.body_html = product.longDescription
+						shopifyProduct.vendor = 'Mars Hydro'
+						shopifyProduct.product_type = scrapedProduct.type
+
+						// shopifyProduct.images = product.images.map(image => ({
+						// 	src: image,
+						// }))
+						shopifyProduct.images = [{ src: scrapedProduct.images[0] }]
+
+						// Create variations
+
+						shopifyProduct.options = []
+
+						if (!scrapedProduct.variantOptions0) {
+							scrapedProduct.variantOptions0 = {
+								name: 'Default',
+								values: ['Default'],
+								price: scrapedProduct.price,
+								quantity: scrapedProduct.stockLevel,
+							}
+						}
+
+						if (scrapedProduct.variantOptions0 && scrapedProduct.variantOptions0.name !== 'Default') {
+							shopifyProduct.options.push({
+								...scrapedProduct.variantOptions0,
+								position: 1,
+							})
+						}
+
+						if (scrapedProduct.variantOptions1) {
+
+							shopifyProduct.options.push({
+								...scrapedProduct.variantOptions1,
+								position: 2,
+							})
+						}
+
+						if (scrapedProduct.variantOptions2) {
+							shopifyProduct.options.push({
+								...scrapedProduct.variantOptions2,
+								position: 3,
+							})
+						}
+
+						shopifyProduct.variants = []
+
+						if (scrapedProduct.variantOptions0) {
+							for (const variantOption0 of scrapedProduct.variantOptions0.values) {
+								if (scrapedProduct.variantOptions1) {
+									for (const variantOption1 of scrapedProduct.variantOptions1.values) {
+										if (scrapedProduct.variantOptions2) {
+											for (const variantOption2 of scrapedProduct.variantOptions2.values) {
+												shopifyProduct.variants.push({
+													option1: variantOption0,
+													option2: variantOption1,
+													option3: variantOption2,
+													price: get(scrapedProduct.variantOptions0, 'price', 0) + get(scrapedProduct.variantOptions1, 'price', 0) + get(scrapedProduct.variantOptions2, 'price', 0),
+													inventory_quantity: scrapedProduct.variantOptions0.quantity,
+													inventory_management: 'shopify',
+												})
+											}
+										} else {
+											shopifyProduct.variants.push({
+												option1: variantOption0,
+												option2: variantOption1,
+												price: get(scrapedProduct.variantOptions0, 'price', 0) + get(scrapedProduct.variantOptions1, 'price', 0),
+												inventory_quantity: scrapedProduct.variantOptions0.quantity,
+												inventory_management: 'shopify',
+											})
+										}
+									}
+								} else {
+									shopifyProduct.variants.push({
+										option1: variantOption0,
+										price: get(scrapedProduct.variantOptions0, 'price', 0),
+										inventory_quantity: scrapedProduct.variantOptions0.quantity,
+										inventory_management: 'shopify',
+									})
+
+								}
+							}
+						}
+
+						// set tags
+						shopifyProduct.tags = [
+							'vendor-' + shopifyProduct.vendor,
+							'type-' + shopifyProduct.product_type,
+							'slug-' + productSlug,
+							// 'url-' + url,
+						]
+
+						shopifyProduct.tags = shopifyProduct.tags.toString()
+
+						// check if product exists first
+						// have to query for products because single product query doesn't support tags
+						const productQueryResp = await shopifyGraph(
+							{
+								query: `{
+									products(first:1, query: "tag:'slug-${productSlug}'") {
+										edges {
+											cursor
+											node {
+												id
+												tags
+											}
+										}
+									}
+								}`,
+							},
+						)
+
+						const products = get(productQueryResp, 'data.data.products.edges', [])
+
+						if (products.length > 0) {
+							const productId = productQueryResp.data.data.products.edges[0].node.id
+							shopifyProduct.id = productId.split('/').pop()
+							shopifyProduct.status = 'active'
+
+							// for some reason options cannot be an empty array
+							if (!shopifyProduct.options.length) {
+								delete shopifyProduct.options
+							}
+
+							await shopifyRestApi
+								.put(
+									`/products/${shopifyProduct.id}.json`,
+									{
+										product: shopifyProduct,
+									},
+								)
+
+							// update variants inventory levels
+
+							// get product variants
+							const productVariantQueryResp = await shopifyGraph(
+								{
+									query: `{
+								productVariants(first: 100, query: "product_id:${shopifyProduct.id}") {
+									edges {
+										node {
+											id
+										}
+									}
+								}
+							}`,
+								},
+							)
+							const productVariants = get(productVariantQueryResp, 'data.data.productVariants.edges', [])
+
+							// for iterating scraped variants
+							let i = 0
+
+							// loop over variants and
+							for (const variant of productVariants) {
+								const scrapedVariant = shopifyProduct.variants[i]
+								if (scrapedVariant) {
+									const scrapedInventoryLevel = scrapedVariant.inventory_quantity
+									const variantInventoryItemQueryResp = await shopifyGraph(
+										{
+											query: `{
+										productVariant(id: "${variant.node.id}") {
+											inventoryItem {
+												id
+												inventoryLevels(first: 100) {
+													edges {
+														node {
+															id
+															available
+														}
+													}
+												}
+											}
+										}
+									}`,
+										})
+
+									const inventoryLevels = get(variantInventoryItemQueryResp, 'data.data.productVariant.inventoryItem.inventoryLevels.edges', [])
+
+									for (const inventoryLevel of inventoryLevels) {
+										await shopifyGraph(
+											{
+												query: `mutation {
+											inventoryAdjustQuantity(input: {
+												availableDelta: ${scrapedInventoryLevel - inventoryLevel.node.available},
+												inventoryLevelId: "${inventoryLevel.node.id}"
+											}) {
+												inventoryLevel {
+													id
+												}
+											}
+										}`,
+											},
+										)
+									}
+								}
+
+								i++
+							}
+
+						} else {
+							await shopifyRestApi
+								.post(
+									'/products.json',
+									{
+										product: shopifyProduct,
+									},
+								)
+						}
+
+						console.log('Scraped url', url)
+						stats.successes++
+					} else {
+						console.log('Product with same title already exists', scrapedProduct.title, 'url', url)
+						stats.sameTitle++
 					}
+
+				} else {
+					console.log('URL already scraped', url)
+					stats.duplicates++
 				}
+
+			} catch (error) {
+				console.error('Caught an error trying to scrape url', url, error)
+				stats.errors++
 			}
 
-			// set tags
-			shopifyProduct.tags = [shopifyProduct.vendor, shopifyProduct.product_type, 'slug-' + url.split('/').pop()]
+			console.log('Closing page for url', url)
+			await pageOrig.close()
+			console.log('Page closed for url', url)
 
-			shopifyProduct.tags = shopifyProduct.tags.toString()
+			console.log('Current progress', stats.successes, '/', urls.length, 'successes', stats.errors, '/', urls.length, 'errors', stats.duplicates, '/', urls.length, 'duplicates', stats.sameTitle, '/', urls.length, 'same title')
 
-			// check if product exists first
-			const productQueryResp = await axios
-				.post(
-					`https://${process.env.SHOPIFY_SHOP}.myshopify.com/admin/api/2022-10/graphql.json`,
+		})
+
+	}
+	// end 	for (let url of urls) {
+
+	// run queue in parallel
+	await Throttle.all(queue, {
+		maxInProgress: 8,
+	})
+
+	console.log('Finished scraping', stats.successes, 'successes and', stats.errors, 'errors and', stats.duplicates, 'duplicates and', stats.sameTitle, 'same title')
+
+	if (archiveOldProducts) {
+
+		console.log('Archiving old products')
+
+		let archived = 0
+
+		const oldProductsQueryResponse = await shopifyGraph(
+			{
+				query: `{
+					products(first: 100, query: "tag:'vendor-Mars Hydro' AND updated_at:<'${startTimeISO}'") {
+						edges {
+							node {
+								id
+								updatedAt
+							}
+						}
+					}
+				}`,
+			},
+		)
+
+		const oldProducts = get(oldProductsQueryResponse, 'data.data.products.edges', [])
+		if (oldProducts.length > 0) {
+			// archive all old products by this vendor
+			for (const product of oldProductsQueryResponse.data.data.products.edges) {
+				const productId = product.node.id
+
+				// use shopify graphql to archive product
+				await shopifyGraph(
 					{
-						query: `{
-							products(first:10, query: "tag:slug-fc-3000-led") {
-								edges {
-									cursor
-									node {
+						query: `
+							mutation {
+								productChangeStatus(productId: "${productId}", status: ARCHIVED) {
+									product {
 										id
-										tags
+									}
+									userErrors {
+										field
+										message
 									}
 								}
 							}
-						}`,
-					},
-					{
-						headers: {
-							'Content-Type': 'application/json',
-							'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN,
-						},
+						`,
 					},
 				)
-				.catch(err =>
-					console.error('Found error in shopify response', err.response.data),
-				)
 
-			if (productQueryResp.data.data.products.edges.length > 0) {
-				const productId = productQueryResp.data.data.products.edges[0].node.id.split('/').pop()
-				shopifyProduct.title = 'test woo'
-				shopifyProduct.id = productId
+				archived++
 
-				// for some reason options cannot be an empty array
-				if (!shopifyProduct.options.length) {
-					delete shopifyProduct.options
-				}
-
-				await axios
-					.put(
-						`https://${process.env.SHOPIFY_SHOP}.myshopify.com/admin/api/2022-10/products/${productId}.json`,
-						{
-							product: shopifyProduct,
-						},
-						{
-							headers: {
-								'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN,
-							},
-						},
-					)
-					.catch(err =>
-						console.error('Found error in shopify put product response', err),
-					)
-			} else {
-				await axios
-					.post(
-						`https://${process.env.SHOPIFY_SHOP}.myshopify.com/admin/api/2022-10/products.json`,
-						{
-							product: shopifyProduct,
-						},
-						{
-							headers: {
-								'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN,
-							},
-						},
-					)
-					.catch(err =>
-						console.error('Found error in shopify response', err.response.data),
-					)
 			}
 		}
 
+		console.log('Archived old products', archived, '/', oldProducts.length)
 	}
 
-	console.log('done')
+	console.log('Closing browser')
+	await browser.close()
+	console.log('Browser closed')
+
+	timer.pause()
+
+	console.log('Finished Everything, Scrape Time', `${timer.format('%m m, %s s')}`)
 
 }
 

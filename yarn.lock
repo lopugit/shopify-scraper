@@ -3498,6 +3498,11 @@ promise-inflight@^1.0.1:
   resolved "https://registry.yarnpkg.com/promise-inflight/-/promise-inflight-1.0.1.tgz#98472870bf228132fcbdd868129bad12c3c029e3"
   integrity sha512-6zWPyEOFaQBJYcGMHBKTKJ3u6TBsnMFOIZSa6ce1e/ZrrsOlnHRHbabMjLiBYKp+n44X9eUI6VUPaukCXHuG4g==
 
+promise-parallel-throttle@^3.3.0:
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/promise-parallel-throttle/-/promise-parallel-throttle-3.3.0.tgz#8fc4a0131a0b9c12470bd27c0732bc4c4ffd68a0"
+  integrity sha512-tThe11SfFXlGMhuO2D+Nba6L8FJFM17w2zwlMV1kqaLfuT2E8NMtMF1WhJBZaSpWz6V76pP/bGAj8BXTAMOncw==
+
 promise-retry@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/promise-retry/-/promise-retry-2.0.1.tgz#ff747a13620ab57ba688f5fc67855410c370da22"
@@ -4189,6 +4194,11 @@ through@^2.3.8:
   version "2.3.8"
   resolved "https://registry.yarnpkg.com/through/-/through-2.3.8.tgz#0dd4c9ffaabc357960b1b724115d7e0e86a2e1f5"
   integrity sha1-DdTJ/6q8NXlgsbckEV1+Doai4fU=
+
+timer-node@^5.0.6:
+  version "5.0.6"
+  resolved "https://registry.yarnpkg.com/timer-node/-/timer-node-5.0.6.tgz#d286ffc5ee67c8699f9027d3bb0f93974ae43cd8"
+  integrity sha512-s07CY6r6so7NH6ErSLkA5NsaQ8DoNQpwW7kqvFvnAnV8nv99qpN5DYdaUh9GTM8z83LrBVx2s6El9sJHbaQ4PA==
 
 to-fast-properties@^2.0.0:
   version "2.0.0"
