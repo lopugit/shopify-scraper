@@ -23,6 +23,7 @@
   "homepage": "https://github.com/lopugit/subber-api#readme",
   "dependencies": {
     "@shopify/shopify-api": "^5.0.1",
+    "algoliasearch": "^4.14.2",
     "axios": "^0.24.0",
     "bcrypt": "^5.0.1",
     "body-parser": "^1.19.1",
@@ -35,6 +36,7 @@
     "lodash": "^4.17.21",
     "luxon": "^2.3.0",
     "mongodb": "^4.3.0",
+    "parse-link-header": "^2.0.0",
     "picocolors": "^1.0.0",
     "promise-parallel-throttle": "^3.3.0",
     "pug": "^3.0.2",

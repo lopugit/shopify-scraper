@@ -30,12 +30,24 @@ app.listen(port, () => {
 	console.log(`Shopify Scraper listening at http://localhost:${port}`)
 })
 
-const scrapeMarsHydroProducts = require('sites/marsHydro');
+const scrapeMarsHydroProducts = require('sites/marsHydro')
+const algoliaSync = require('algoliaSync');
 
 (async () => {
 
-	scrapeMarsHydroProducts()
-	setInterval(scrapeMarsHydroProducts, 1000 * 60 * 60) // run every hour
+	const scrape = true
+
+	if (scrape) {
+		scrapeMarsHydroProducts()
+		setInterval(scrapeMarsHydroProducts, 1000 * 60 * 60) // run every hour
+	}
+
+	const sync = true
+
+	if (sync) {
+		algoliaSync()
+		setInterval(algoliaSync, 1000 * 60) // run every minute
+	}
 
 })()
 
