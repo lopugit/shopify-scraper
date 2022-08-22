@@ -135,7 +135,10 @@ const scrapeMarsHydroProducts = async () => {
 						// Get short description
 						scrapedProduct.shortDescription = await page.jQuery('.woocommerce-product-details__short-description').text()
 
-						await page.waitForSelector('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper.owl-carousel.owl-loaded > .owl-stage-outer', { timeout: 15000 })
+						await page.waitForSelector(
+							'.woocommerce-product-gallery .woocommerce-product-gallery__wrapper.owl-carousel.owl-loaded > .owl-stage-outer',
+							{ timeout: 1000 * 15 },
+						)
 
 						// Get product images
 						const images = await page.jQuery('.woocommerce-product-gallery .woocommerce-product-gallery__wrapper .owl-stage-outer > .owl-stage > .owl-item a')
@@ -145,7 +148,7 @@ const scrapeMarsHydroProducts = async () => {
 
 						for (const image of images) {
 							const imageUrl = await page.evaluate(img => img.href, image)
-							scrapedProduct.images.push(imageUrl)
+							scrapedProduct.images.push({ src: imageUrl })
 						}
 
 						scrapedProduct.price = await page.jQuery('.summary-inner > .price > .woocommerce-Price-amount.amount bdi').text()
@@ -153,14 +156,23 @@ const scrapeMarsHydroProducts = async () => {
 						scrapedProduct.price = Number(priceReplaced)
 						scrapedProduct.price = adjustPrice(scrapedProduct.price)
 
-						if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growkit')) {
-							scrapedProduct.type = 'Grow Kit'
-						} else if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growtent')) {
-							scrapedProduct.type = 'Grow Tent'
-						} else if (scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growlight')) {
-							scrapedProduct.type = 'Grow Light'
-						} else {
-							scrapedProduct.type = 'Accessory'
+						let typeSet = false
+
+						if (
+							scrapedProduct.title.includes('+')
+						) {
+							scrapedProduct.type = 'Grow Kits'
+							typeSet = true
+						}
+
+						if (!typeSet && scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growkit')) {
+							scrapedProduct.type = 'Grow Kits'
+						} else if (!typeSet && scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growtent')) {
+							scrapedProduct.type = 'Grow Tents'
+						} else if (!typeSet && scrapedProduct.title && scrapedProduct.title.replace(/ /g, '').toLowerCase().includes('growlight')) {
+							scrapedProduct.type = 'Grow Lights'
+						} else if (!typeSet) {
+							scrapedProduct.type = 'Accessories'
 						}
 
 						const doVariants = false
@@ -223,10 +235,7 @@ const scrapeMarsHydroProducts = async () => {
 						shopifyProduct.vendor = 'Mars Hydro'
 						shopifyProduct.product_type = scrapedProduct.type
 
-						// shopifyProduct.images = product.images.map(image => ({
-						// 	src: image,
-						// }))
-						shopifyProduct.images = [{ src: scrapedProduct.images[0] }]
+						shopifyProduct.images = scrapedProduct.images
 
 						// Create variations
 

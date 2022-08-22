@@ -117,6 +117,7 @@ module.exports = async () => {
 					price: product.variants[0].price,
 					indexes,
 					collections: collectionProductsDb[product.id] || [],
+					product_type: ['All', product.product_type],
 				}
 			})
 
