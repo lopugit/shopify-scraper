@@ -76,6 +76,7 @@ const scrapeMarsHydroProducts = async () => {
 	const stats = {
 		successes: 0,
 		errors: 0,
+		errorLogs: [],
 		duplicates: 0,
 		sameTitle: 0,
 	}
@@ -109,7 +110,25 @@ const scrapeMarsHydroProducts = async () => {
 
 					completedUrls.push(url)
 
-					await page.goto(url, { timeout: 1000 * 99 })
+					const attempts = 9
+					let success = false
+					for (let i = 0; i < attempts; i++) {
+						if (!success) {
+							try {
+								await page.goto(url, { timeout: 1000 * 99 })
+							} catch (error) {
+								console.log('Going to url failed, retrying')
+								if (i >= attempts - 1) {
+									throw error
+								}
+							}
+
+							success = true
+						} else {
+							i = Infinity
+						}
+
+					}
 
 					const scrapedProduct = {}
 
@@ -151,10 +170,14 @@ const scrapeMarsHydroProducts = async () => {
 							scrapedProduct.images.push({ src: imageUrl })
 						}
 
-						scrapedProduct.price = await page.jQuery('.summary-inner > .price > .woocommerce-Price-amount.amount bdi').text()
-						const priceReplaced = scrapedProduct.price.replace(/\$|,/g, '')
-						scrapedProduct.price = Number(priceReplaced)
-						scrapedProduct.price = adjustPrice(scrapedProduct.price)
+						const scrapedPrice = await page.jQuery('.summary-inner .price .woocommerce-Price-amount.amount bdi').text()
+						const priceReplaced = scrapedPrice.replace(/\$|,/g, '')
+						const priceNumber = Number(priceReplaced)
+						scrapedProduct.price = adjustPrice(priceNumber)
+
+						if (scrapedProduct.price === 0) {
+							scrapedProduct.save = false
+						}
 
 						let typeSet = false
 
@@ -341,7 +364,7 @@ const scrapeMarsHydroProducts = async () => {
 
 						const products = get(productQueryResp, 'data.data.products.edges', [])
 
-						if (products.length > 0) {
+						if (products.length > 0 && scrapedProduct.save !== false) {
 							const productId = productQueryResp.data.data.products.edges[0].node.id
 							shopifyProduct.id = productId.split('/').pop()
 							shopifyProduct.status = 'active'
@@ -427,7 +450,7 @@ const scrapeMarsHydroProducts = async () => {
 								i++
 							}
 
-						} else {
+						} else if (scrapedProduct.save !== false) {
 							await shopifyRestApi
 								.post(
 									'/products.json',
@@ -451,6 +474,7 @@ const scrapeMarsHydroProducts = async () => {
 
 			} catch (error) {
 				console.error('Caught an error trying to scrape url', url, error)
+				stats.errorLogs.push(error)
 				stats.errors++
 			}
 
@@ -467,12 +491,12 @@ const scrapeMarsHydroProducts = async () => {
 
 	// run queue in parallel
 	await Throttle.all(queue, {
-		maxInProgress: 8,
+		maxInProgress: 4,
 	})
 
-	console.log('Finished scraping', stats.successes, 'successes and', stats.errors, 'errors and', stats.duplicates, 'duplicates and', stats.sameTitle, 'same title')
-
-	if (archiveOldProducts) {
+	console.log('Finished scraping', stats.successes, '/', urls.length, 'successes', stats.errors, '/', urls.length, 'errors', stats.duplicates, '/', urls.length, 'duplicates', stats.sameTitle, '/', urls.length, 'same title')
+	console.error('Errors logs', stats.errorLogs)
+	if ((stats.successes / urls.length) > 0.35 && archiveOldProducts) {
 
 		console.log('Archiving old products')
 
